@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<title>Stoc</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2@1.8.4/dist/quagga.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+<style>
+  :root{
+    --bg:#f6f6f3; --surface:#ffffff; --surface-2:#f0f0ec;
+    --ink:#17191c; --muted:#6a7076; --line:#e6e6e0;
+    --accent:#0e6b4f; --accent-soft:#e2efe9; --danger:#b4472e;
+    --shadow:0 1px 2px rgba(20,22,26,.06), 0 8px 24px rgba(20,22,26,.06);
+    --r:16px;
+    box-sizing:border-box;
+    padding-top:env(safe-area-inset-top,0px);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#111210; --surface:#1b1d1a; --surface-2:#242622;
+      --ink:#edefea; --muted:#9aa09a; --line:#2c2f2b;
+      --accent:#4fd1a3; --accent-soft:#163a2e; --danger:#e88a6f;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#111210; --surface:#1b1d1a; --surface-2:#242622;
+    --ink:#edefea; --muted:#9aa09a; --line:#2c2f2b;
+    --accent:#4fd1a3; --accent-soft:#163a2e; --danger:#e88a6f;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html{scroll-padding-top:env(safe-area-inset-top,0px)}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:"Hanken Grotesk",system-ui,-apple-system,sans-serif;
+    font-size:16px; line-height:1.4; -webkit-font-smoothing:antialiased;
+    font-variant-numeric:tabular-nums;
+  }
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input{font-family:inherit}
+
+  header{
+    position:sticky; top:env(safe-area-inset-top,0px); z-index:20;
+    background:color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter:saturate(1.3) blur(12px);
+    -webkit-backdrop-filter:saturate(1.3) blur(12px);
+    border-bottom:1px solid var(--line);
+    padding:14px 16px 12px;
+  }
+  .brand{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  h1{margin:0;font-size:26px;font-weight:800;letter-spacing:-.02em}
+  .totals{font-size:13.5px;color:var(--muted);font-weight:600;white-space:nowrap}
+  .totals b{color:var(--ink);font-weight:800}
+  .status{margin-top:8px;font-size:12px;font-weight:700;color:var(--muted)}
+  .status.cloud{color:var(--accent)}
+  .status.local{color:var(--danger)}
+  .brand-right{display:flex;align-items:center;gap:10px}
+  .lang{flex:none;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);
+    font-size:12.5px;font-weight:800;color:var(--muted);letter-spacing:.03em}
+  .lang:active{background:var(--surface-2)}
+  .search{
+    margin-top:12px; display:flex; align-items:center; gap:8px;
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:12px; padding:9px 12px;
+  }
+  .search svg{flex:none;width:18px;height:18px;stroke:var(--muted)}
+  .search input{border:none;background:none;outline:none;color:var(--ink);font-size:16px;width:100%}
+  .search input::placeholder{color:var(--muted)}
+
+  main{padding:16px 16px 120px;max-width:720px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  @media(min-width:560px){.grid{grid-template-columns:repeat(3,1fr)}}
+
+  .chipbar{display:flex;gap:8px;overflow-x:auto;padding:4px 16px 2px;margin:0 -16px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .chipbar::-webkit-scrollbar{display:none}
+  .chipbar.sub{padding-top:10px}
+  .chip-f{flex:none;padding:8px 14px;border-radius:999px;background:var(--surface);border:1px solid var(--line);
+    font-size:14px;font-weight:700;color:var(--muted);white-space:nowrap}
+  .chip-f.on{background:var(--accent);color:#fff;border-color:transparent}
+  @media (prefers-color-scheme: dark){.chip-f.on{color:#0b1a14}}
+  :root[data-theme="dark"] .chip-f.on{color:#0b1a14}
+  .group{margin-top:20px}
+  .group:first-child{margin-top:12px}
+  .ghead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:0 2px 10px;
+    font-size:15px;font-weight:800;letter-spacing:-.01em}
+  .ghead span{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
+
+  .card{
+    background:var(--surface); border:1px solid var(--line);
+    border-radius:var(--r); overflow:hidden; box-shadow:var(--shadow);
+    text-align:left; width:100%; display:flex; flex-direction:column;
+    transition:transform .12s ease;
+  }
+  .card:active{transform:scale(.975)}
+  .thumb{aspect-ratio:1/1;background:var(--surface-2);position:relative;overflow:hidden}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:30px}
+  .card .body{padding:10px 12px 12px}
+  .card .name{font-weight:600;font-size:14.5px;line-height:1.25;overflow:hidden;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.5em}
+  .qtyrow{display:flex;align-items:baseline;gap:4px;margin-top:6px}
+  .qty{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1;color:var(--accent)}
+  .qty.zero{color:var(--danger)}
+  .unit{font-size:13px;font-weight:600;color:var(--muted)}
+
+  .empty{text-align:center;color:var(--muted);padding:64px 24px}
+  .empty .big{font-size:40px;margin-bottom:10px}
+  .empty p{margin:4px 0;font-size:15px}
+
+  .fab-wrap{position:fixed;right:18px;z-index:30;
+    bottom:calc(20px + env(safe-area-inset-bottom,0px));
+    display:flex;align-items:center;gap:12px}
+  .fab{
+    height:58px;padding:0 22px;border-radius:30px;
+    background:var(--accent); color:#fff; font-size:16px; font-weight:700;
+    display:flex;align-items:center;gap:8px;
+    box-shadow:0 6px 20px color-mix(in srgb,var(--accent) 45%, transparent);
+  }
+  .fab-mini{height:58px;width:58px;border-radius:50%;background:var(--surface);
+    border:1px solid var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow)}
+  .fab-mini svg{width:24px;height:24px;stroke:currentColor;stroke-width:2.2}
+  .fab-mini:active{transform:scale(.95)}
+  :root[data-theme="dark"] .fab,
+  @media (prefers-color-scheme: dark){.fab{color:#0b1a14}}
+  .fab:active{transform:scale(.95)}
+  .fab svg{width:22px;height:22px;stroke:currentColor;stroke-width:2.4}
+
+  /* sheet */
+  .scrim{position:fixed;inset:0;z-index:40;background:rgba(10,12,14,.5);opacity:0;pointer-events:none;transition:opacity .2s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .sheet{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:var(--bg);border-top-left-radius:22px;border-top-right-radius:22px;
+    transform:translateY(100%);transition:transform .26s cubic-bezier(.2,.8,.2,1);
+    max-height:92vh;overflow:auto;
+    padding:8px 18px calc(24px + env(safe-area-inset-bottom,0px));
+    box-shadow:0 -8px 40px rgba(0,0,0,.25);
+  }
+  .sheet.on{transform:translateY(0)}
+  .grip{width:40px;height:4px;border-radius:4px;background:var(--line);margin:6px auto 14px}
+  .sheet h2{margin:0 0 16px;font-size:20px;font-weight:800;letter-spacing:-.01em}
+
+  .photo-pick{
+    width:100%;aspect-ratio:4/3;border-radius:14px;border:1.5px dashed var(--line);
+    background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:8px;color:var(--muted);overflow:hidden;position:relative;
+  }
+  .photo-pick img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .photo-pick .ic{width:30px;height:30px;stroke:var(--muted);stroke-width:1.8}
+  .photo-pick .hint{font-size:13.5px;font-weight:600}
+  .photo-pick.has .overlay{position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);color:#fff;
+    font-size:12.5px;font-weight:700;padding:6px 10px;border-radius:9px;backdrop-filter:blur(4px)}
+
+  label.fld{display:block;margin-top:16px}
+  .lbl{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px}
+  .txt{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);
+    background:var(--surface);color:var(--ink);font-size:17px;outline:none}
+  .txt:focus{border-color:var(--accent)}
+
+  .stepper{display:flex;align-items:center;gap:12px;margin-top:6px}
+  .step{width:52px;height:52px;border-radius:14px;background:var(--surface);border:1px solid var(--line);
+    font-size:26px;font-weight:700;display:flex;align-items:center;justify-content:center;color:var(--ink)}
+  .step:active{background:var(--surface-2)}
+  .step.minus{color:var(--danger)}
+  .step.plus{color:var(--accent)}
+  .stepval{flex:1;text-align:center}
+  .stepval .n{font-size:40px;font-weight:800;line-height:1;letter-spacing:-.02em}
+  .stepval .u{font-size:13px;font-weight:600;color:var(--muted)}
+
+  .quickadd{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .chip{padding:9px 14px;border-radius:11px;background:var(--surface);border:1px solid var(--line);
+    font-size:15px;font-weight:700}
+  .chip:active{background:var(--surface-2)}
+  .chip.pos{color:var(--accent)}
+  .chip.neg{color:var(--danger)}
+
+  .actions{display:flex;gap:10px;margin-top:22px}
+  .btn{flex:1;padding:15px;border-radius:14px;font-size:16px;font-weight:700;text-align:center}
+  .btn.primary{background:var(--accent);color:#fff}
+  @media (prefers-color-scheme: dark){.btn.primary{color:#0b1a14}}
+  :root[data-theme="dark"] .btn.primary{color:#0b1a14}
+  .btn.ghost{background:var(--surface);border:1px solid var(--line);color:var(--ink)}
+  .btn.danger{background:none;color:var(--danger);border:1px solid var(--line);flex:none;width:56px;font-size:20px}
+  .btn:active{opacity:.85}
+
+  .detail-hero{width:100%;aspect-ratio:4/3;border-radius:16px;overflow:hidden;background:var(--surface-2);position:relative}
+  .detail-hero img{width:100%;height:100%;object-fit:cover}
+  .detail-hero .noimg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:48px}
+  .detail-name{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:16px 0 2px}
+  .meta{font-size:13px;color:var(--muted);font-weight:600}
+
+  .toast{position:fixed;left:50%;transform:translateX(-50%) translateY(20px);z-index:60;
+    bottom:calc(96px + env(safe-area-inset-bottom,0px));
+    background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-size:14px;font-weight:700;
+    opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;box-shadow:var(--shadow)}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .sublink{display:block;text-align:center;margin-top:16px;color:var(--muted);font-size:13.5px;font-weight:600;text-decoration:underline}
+
+  .bc-row{display:flex;gap:8px}
+  .bc-row .txt{flex:1}
+  .bc-scan{flex:none;padding:0 16px;border-radius:12px;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:15px}
+  .bc-scan:active{opacity:.75}
+  .desc-txt{resize:vertical;font-size:15px;line-height:1.4}
+  .detail-desc{font-size:14.5px;color:var(--muted);line-height:1.45;margin:8px 0 4px;white-space:pre-wrap}
+  .segbar{display:flex;gap:6px;background:var(--surface-2);padding:4px;border-radius:14px}
+  .seg{flex:1;padding:9px 6px;border-radius:10px;font-size:13.5px;font-weight:700;color:var(--muted);background:transparent;white-space:nowrap}
+  .seg.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
+  .seg:active{opacity:.8}
+  .main-seg{margin-bottom:12px}
+  .segn{font-size:11.5px;font-weight:700;opacity:.65}
+  .ai-status{font-size:12.5px;font-weight:700;color:var(--muted);margin-top:10px;min-height:1em}
+  .ai-status.on{color:var(--accent)}
+
+  .scanner{position:fixed;inset:0;z-index:70;background:#000;display:none;flex-direction:column}
+  .scanner.on{display:flex}
+  .scan-top{display:flex;align-items:center;gap:14px;color:#fff;font-weight:700;font-size:17px;
+    padding:calc(14px+env(safe-area-inset-top,0px)) 18px 14px}
+  .scan-top button{flex:none;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.16);
+    color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center}
+  #reader{flex:1;min-height:0;width:100%;overflow:hidden;position:relative}
+  #reader video{width:100%!important;height:100%!important;object-fit:cover!important}
+  .scan-hint{color:#fff;text-align:center;font-size:14px;font-weight:600;padding:14px 20px;opacity:.9}
+  .scan-photo-btn{margin:0 18px calc(24px+env(safe-area-inset-bottom,0px));padding:15px;border-radius:14px;
+    background:rgba(255,255,255,.14);color:#fff;font-weight:700;font-size:15px}
+  .scan-photo-btn:active{background:rgba(255,255,255,.26)}
+
+  .scanner{position:fixed;inset:0;z-index:70;background:#000;display:none;flex-direction:column}
+  .scanner.on{display:flex}
+  .scan-top{display:flex;align-items:center;gap:14px;color:#fff;font-weight:700;font-size:17px;
+    padding:calc(14px+env(safe-area-inset-top,0px)) 18px 14px}
+  .scan-top button{flex:none;width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.16);
+    color:#fff;font-size:17px;display:flex;align-items:center;justify-content:center}
+  #reader{flex:1;min-height:0;width:100%;overflow:hidden;position:relative}
+  #reader video{width:100%!important;height:100%!important;object-fit:cover!important}
+  .scan-hint{color:#fff;text-align:center;font-size:14px;font-weight:600;padding:14px 20px;opacity:.9}
+  .scan-photo-btn{margin:0 18px calc(24px+env(safe-area-inset-bottom,0px));padding:15px;border-radius:14px;
+    background:rgba(255,255,255,.14);color:#fff;font-weight:700;font-size:15px}
+  .scan-photo-btn:active{background:rgba(255,255,255,.26)}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <h1 data-i18n="appTitle">Stoc</h1>
+    <div class="brand-right">
+      <div class="totals" id="totals"></div>
+      <button class="lang" id="pdfBtn">PDF</button>
+      <button class="lang" id="langToggle">EN</button>
+    </div>
+  </div>
+  <div class="status" id="status">Se conectează…</div>
+  <div class="search">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+    <input id="search" type="search" data-i18n-ph="search_ph" autocomplete="off">
+  </div>
+</header>
+
+<main>
+  <div class="segbar main-seg" id="stockSel">
+    <button class="seg" data-stock="pro"><span data-i18n="st_pro">Profesionale</span> <span class="segn" id="cnt-pro"></span></button>
+    <button class="seg" data-stock="retail"><span data-i18n="st_retail">Retail</span> <span class="segn" id="cnt-retail"></span></button>
+    <button class="seg" data-stock="sale"><span data-i18n="st_sale">Sale</span> <span class="segn" id="cnt-sale"></span></button>
+  </div>
+  <div id="catbar" class="chipbar"></div>
+  <div id="subbar" class="chipbar sub" hidden></div>
+  <div id="groups"></div>
+  <div id="empty" class="empty" hidden>
+    <div class="big">📦</div>
+    <p><b>Niciun produs încă.</b></p>
+    <p>Apasă pe <b>Adaugă produs</b> ca să pui prima poză și cantitatea.</p>
+  </div>
+</main>
+
+<div class="fab-wrap">
+  <button class="fab-mini" id="fabAdd" aria-label="Adaugă manual">
+    <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="fab" id="fabScan">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round"><path d="M4 7v10M8 7v10M12 7v10M16 7v10M20 7v10"/></svg>
+    <span data-i18n="fab_scan">Scanează</span>
+  </button>
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<!-- barcode scanner overlay -->
+<div class="scanner" id="scanner">
+  <div class="scan-top">
+    <button id="scanClose" aria-label="Close">✕</button>
+    <span data-i18n="scan_title">Scanează codul de bare</span>
+  </div>
+  <div id="reader"></div>
+  <div class="scan-hint" id="scanHint" data-i18n="scan_hint">Ține codul de bare în cadru</div>
+  <button class="scan-photo-btn" id="scanPhoto" data-i18n="scan_photo">Camera nu pornește? Fotografiază codul</button>
+  <input id="scanFile" type="file" accept="image/*" capture="environment" hidden>
+</div>
+
+<!-- ADD / EDIT sheet -->
+<div class="sheet" id="sheetForm">
+  <div class="grip"></div>
+  <h2 id="formTitle">Produs nou</h2>
+  <button type="button" class="photo-pick" id="photoPick">
+    <svg class="ic" viewBox="0 0 24 24" fill="none"><path d="M3 8a2 2 0 0 1 2-2h2l1.2-1.6A1 1 0 0 1 11 4h2a1 1 0 0 1 .8.4L15 6h4a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="13" r="3.5"/></svg>
+    <span class="hint" data-i18n="photo_hint">Adaugă poză (apasă)</span>
+    <span class="overlay" data-i18n="photo_overlay">Schimbă poza</span>
+  </button>
+  <input id="fileInput" type="file" accept="image/*" capture="environment" hidden>
+  <div class="ai-status" id="aiStatus"></div>
+
+  <label class="fld">
+    <div class="lbl" data-i18n="lbl_name">Nume produs</div>
+    <div class="bc-row">
+      <input id="nameInput" class="txt" type="text" data-i18n-ph="name_ph" autocomplete="off">
+      <button type="button" class="bc-scan" id="aiName">✨ AI</button>
+    </div>
+  </label>
+
+  <div class="fld">
+    <div class="lbl" data-i18n="lbl_stock">Listă</div>
+    <div class="segbar" id="formStockBar">
+      <button type="button" class="seg" data-stock="pro" data-i18n="st_pro">Profesionale</button>
+      <button type="button" class="seg" data-stock="retail" data-i18n="st_retail">Retail</button>
+      <button type="button" class="seg" data-stock="sale" data-i18n="st_sale">Sale</button>
+    </div>
+  </div>
+
+  <label class="fld">
+    <div class="lbl" data-i18n="lbl_cat">Categorie</div>
+    <input id="catInput" class="txt" type="text" list="catList" data-i18n-ph="cat_ph" autocomplete="off">
+    <datalist id="catList"></datalist>
+  </label>
+
+  <label class="fld">
+    <div class="lbl" data-i18n="lbl_sub">Subcategorie</div>
+    <input id="subInput" class="txt" type="text" list="subcatList" data-i18n-ph="sub_ph" autocomplete="off">
+    <datalist id="subcatList"></datalist>
+  </label>
+
+  <label class="fld">
+    <div class="lbl" data-i18n="lbl_desc">Descriere</div>
+    <textarea id="descInput" class="txt desc-txt" rows="3" data-i18n-ph="desc_ph"></textarea>
+  </label>
+
+  <div class="fld">
+    <div class="lbl" data-i18n="lbl_bc">Cod de bare (opțional)</div>
+    <div class="bc-row">
+      <input id="bcInput" class="txt" type="text" inputmode="numeric" data-i18n-ph="bc_ph" autocomplete="off">
+      <button type="button" class="bc-scan" id="bcScan" data-i18n="bc_scan">Scanează</button>
+    </div>
+  </div>
+
+  <div class="fld">
+    <div class="lbl" id="qtyLbl">Cantitate (buc)</div>
+    <div class="stepper">
+      <button type="button" class="step minus" data-step="-1">−</button>
+      <div class="stepval"><div class="n" id="qtyVal">1</div><div class="u" data-i18n="pieces">bucăți</div></div>
+      <button type="button" class="step plus" data-step="1">+</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn ghost" id="formCancel" data-i18n="form_cancel">Renunță</button>
+    <button class="btn primary" id="formSave" data-i18n="form_save">Salvează</button>
+  </div>
+</div>
+
+<!-- DETAIL sheet -->
+<div class="sheet" id="sheetDetail">
+  <div class="grip"></div>
+  <div class="detail-hero" id="detailHero"></div>
+  <div class="detail-name" id="detailName"></div>
+  <div class="detail-desc" id="detailDesc"></div>
+  <div class="meta" id="detailMeta"></div>
+  <div class="segbar" id="detailStockBar" style="margin:12px 0 2px">
+    <button type="button" class="seg" data-stock="pro" data-i18n="st_pro">Profesionale</button>
+    <button type="button" class="seg" data-stock="retail" data-i18n="st_retail">Retail</button>
+    <button type="button" class="seg" data-stock="sale" data-i18n="st_sale">Sale</button>
+  </div>
+
+  <div class="fld">
+    <div class="lbl" data-i18n="detail_qty">Cantitate în stoc</div>
+    <div class="stepper">
+      <button type="button" class="step minus" id="dMinus">−</button>
+      <div class="stepval"><div class="n" id="dQty">0</div><div class="u" data-i18n="pieces">bucăți</div></div>
+      <button type="button" class="step plus" id="dPlus">+</button>
+    </div>
+    <div class="quickadd">
+      <button class="chip pos" data-q="5">+5</button>
+      <button class="chip pos" data-q="10">+10</button>
+      <button class="chip neg" data-q="-5">−5</button>
+      <button class="chip neg" data-q="-10">−10</button>
+      <button class="chip" id="dSetExact" data-i18n="set_exact">Setează exact…</button>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn danger" id="dDelete">🗑</button>
+    <button class="btn ghost" id="dEdit" data-i18n="edit">Editează</button>
+    <button class="btn primary" id="dClose" data-i18n="done">Gata</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const DB="stoc_db", STORE="produse";
+let products=[], query="", editId=null, formQty=1, formPhoto=null, formPhotoFile=null, detailId=null;
+let MODE="local", db=null, unsub=null;
+let activeCat=null, activeSub=null;
+let activeStock="pro", formStock="pro";
+const STOCK_TYPES=["pro","retail","sale"];
+const stockOf=p=>p.stockType||"pro";
+let canVision=false, sampleFn=null, sampleReady=null, visionReason="";
+
+/* ---------- i18n ---------- */
+const I18N={
+ ro:{
+  appTitle:"Stoc", search_ph:"Caută produs…",
+  empty1:"Niciun produs încă.", empty2:"Apasă „Scanează” sau „+” ca să adaugi primul produs.",
+  fab_scan:"Scanează",
+  form_new:"Produs nou", form_edit:"Editează produs",
+  photo_hint:"Adaugă poză (apasă)", photo_overlay:"Schimbă poza",
+  lbl_name:"Nume produs", name_ph:"ex. Ulei de masaj",
+  lbl_cat:"Categorie", cat_ph:"ex. Păr",
+  lbl_sub:"Subcategorie", sub_ph:"ex. Shampoo",
+  st_pro:"Profesionale", st_retail:"Retail", st_sale:"Sale", lbl_stock:"Listă",
+  pdf_title:(n)=>"Stoc — "+n, pdf_loading:"PDF se pregătește…",
+  pdf_keepnote:"Bifeaza:  Y = pastram   ·   N = eliminam",
+  lbl_desc:"Descriere", desc_ph:"Ce este produsul, pentru ce se folosește…",
+  lbl_bc:"Cod de bare (opțional)", bc_ph:"ex. 5941234567890", bc_scan:"Scanează",
+  qty_lbl:"Cantitate (buc)", qty_lbl_init:"Cantitate inițială (buc)",
+  pieces:"bucăți", unit_buc:"buc",
+  form_cancel:"Renunță", form_save:"Salvează",
+  detail_qty:"Cantitate în stoc", set_exact:"Setează exact…", edit:"Editează", done:"Gata",
+  all:"Toate", no_cat:"Fără categorie", no_sub:"Fără subcategorie",
+  code_lbl:"Cod", updated_lbl:"Actualizat",
+  status_connecting:"Se conectează…",
+  status_cloud:"☁ Salvat pe serverul tău · pe toate dispozitivele",
+  status_local:"⚠ Nu m-am conectat la server — reîncarcă pagina",
+  sync_lost:"Sincronizare întreruptă",
+  totals:(ty,pc)=>ty+" produse · "+pc+" buc",
+  group_count:(n,pc)=>n+" · "+pc+" buc",
+  none_here:(q)=>"Niciun produs aici"+(q?` pentru „${q}”`:"")+".",
+  ai_scanning:"🔍 Recunosc produsul…",
+  ai_done:(bits)=>"✓ Completat din poză ("+bits+") — verifică",
+  ai_word_name:"nume", ai_word_cat:"categorie",
+  ai_none:"Nu am recunoscut produsul — scrie manual",
+  ai_unavail:"Recunoașterea AI nu e disponibilă aici",
+  ai_fail:"Nu a mers — încearcă din nou sau scrie numele",
+  ai_needphoto:"Adaugă întâi o poză",
+  processing:"Procesez poza…", photofail:"Nu am putut citi poza",
+  saved:"Salvat", deleted:"Șters",
+  addto:(n,q)=>"Adăugat · "+n+": "+q+" buc",
+  plus1:(n,q)=>"+1 · "+n+" = "+q+" buc",
+  needname:"Scrie numele produsului",
+  newcode:"Cod nou — completează produsul",
+  coderead:(c)=>"Cod citit: "+c, codeempty:"Cod gol",
+  scanloading:"Scannerul se încarcă — mai încearcă o dată",
+  scanunavail:"Scanner indisponibil", scansearch:"Caut codul de bare…",
+  scannotfound:"N-am găsit cod de bare. Fotografiază mai aproape și clar.",
+  scan_title:"Scanează codul de bare", scan_hint:"Ține codul de bare în cadru, bine luminat",
+  scan_photo:"Camera nu pornește? Fotografiază codul",
+  scan_starting:"Pornesc camera…",
+  scan_nocam:"Camera live nu e disponibilă aici — folosește butonul de jos ca să fotografiezi codul.",
+  notsaved:"Nu s-a salvat — reîncearcă", notdeleted:"Nu s-a șters — reîncearcă",
+  merge:(n,q,a)=>`„${n}” există deja cu ${q} buc.\n\nAdaug cele ${a} buc la stocul existent?`,
+  del_confirm:(n)=>`Ștergi „${n}” din stoc?`,
+  prompt_exact:"Cantitate exactă (buc):", invalidnum:"Număr invalid",
+ },
+ en:{
+  appTitle:"Stock", search_ph:"Search product…",
+  empty1:"No products yet.", empty2:"Tap “Scan” or “+” to add your first product.",
+  fab_scan:"Scan",
+  form_new:"New product", form_edit:"Edit product",
+  photo_hint:"Add photo (tap)", photo_overlay:"Change photo",
+  lbl_name:"Product name", name_ph:"e.g. Massage oil",
+  lbl_cat:"Category", cat_ph:"e.g. Hair",
+  lbl_sub:"Subcategory", sub_ph:"e.g. Shampoo",
+  st_pro:"Professional", st_retail:"Retail", st_sale:"Sale", lbl_stock:"List",
+  pdf_title:(n)=>"Stock — "+n, pdf_loading:"Preparing PDF…",
+  pdf_keepnote:"Tick:  Y = keep   ·   N = remove",
+  lbl_desc:"Description", desc_ph:"What the product is and what it's used for…",
+  lbl_bc:"Barcode (optional)", bc_ph:"e.g. 5941234567890", bc_scan:"Scan",
+  qty_lbl:"Quantity (pcs)", qty_lbl_init:"Initial quantity (pcs)",
+  pieces:"pieces", unit_buc:"pcs",
+  form_cancel:"Cancel", form_save:"Save",
+  detail_qty:"In stock", set_exact:"Set exact…", edit:"Edit", done:"Done",
+  all:"All", no_cat:"No category", no_sub:"No subcategory",
+  code_lbl:"Code", updated_lbl:"Updated",
+  status_connecting:"Connecting…",
+  status_cloud:"☁ Saved on your server · on all devices",
+  status_local:"⚠ Couldn’t reach the server — reload the page",
+  sync_lost:"Sync interrupted",
+  totals:(ty,pc)=>ty+" products · "+pc+" pcs",
+  group_count:(n,pc)=>n+" · "+pc+" pcs",
+  none_here:(q)=>"No products here"+(q?` for “${q}”`:"")+".",
+  ai_scanning:"🔍 Recognizing product…",
+  ai_done:(bits)=>"✓ Filled from photo ("+bits+") — check",
+  ai_word_name:"name", ai_word_cat:"category",
+  ai_none:"Couldn’t recognize it — type manually",
+  ai_unavail:"AI recognition isn’t available here",
+  ai_fail:"Didn’t work — try again or type the name",
+  ai_needphoto:"Add a photo first",
+  processing:"Processing photo…", photofail:"Couldn’t read the photo",
+  saved:"Saved", deleted:"Deleted",
+  addto:(n,q)=>"Added · "+n+": "+q+" pcs",
+  plus1:(n,q)=>"+1 · "+n+" = "+q+" pcs",
+  needname:"Enter the product name",
+  newcode:"New code — fill in the product",
+  coderead:(c)=>"Code read: "+c, codeempty:"Empty code",
+  scanloading:"Scanner is loading — try again",
+  scanunavail:"Scanner unavailable", scansearch:"Looking for the barcode…",
+  scannotfound:"No barcode found. Photograph closer and clearer.",
+  scan_title:"Scan barcode", scan_hint:"Hold the barcode in the frame, well lit",
+  scan_photo:"Camera won’t start? Photograph the code",
+  scan_starting:"Starting camera…",
+  scan_nocam:"Live camera isn’t available here — use the button below to photograph the code.",
+  notsaved:"Not saved — try again", notdeleted:"Not deleted — try again",
+  merge:(n,q,a)=>`“${n}” already exists with ${q} pcs.\n\nAdd these ${a} pcs to the existing stock?`,
+  del_confirm:(n)=>`Delete “${n}” from stock?`,
+  prompt_exact:"Exact quantity (pcs):", invalidnum:"Invalid number",
+ }
+};
+let lang=(()=>{try{return localStorage.getItem("stoc_lang")||"ro"}catch{return "ro"}})();
+function t(k,...a){const v=(I18N[lang]||I18N.ro)[k];return typeof v==="function"?v(...a):(v==null?k:v);}
+function applyStaticI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>el.textContent=t(el.dataset.i18n));
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>el.setAttribute("placeholder",t(el.dataset.i18nPh)));
+  const emp=$("empty"); if(emp) emp.innerHTML='<div class="big">📦</div><p>'+t("empty1")+'</p><p>'+t("empty2")+'</p>';
+  const tg=$("langToggle"); if(tg) tg.textContent=lang==="ro"?"EN":"RO";
+  document.documentElement.lang=lang;
+}
+function updateDynamic(){
+  if($("formTitle")) $("formTitle").textContent=t(editId?"form_edit":"form_new");
+  if($("qtyLbl")) $("qtyLbl").textContent=t(editId?"qty_lbl":"qty_lbl_init");
+  if(detailId){const p=products.find(x=>x.id===detailId); if(p) setDetailMeta(p);}
+}
+function setDetailMeta(p){
+  const catTxt=[p.category,p.subcategory].filter(Boolean).join(" › ");
+  const d=new Date(p.updatedAt).toLocaleDateString(lang==="ro"?"ro-RO":"en-GB",{day:"numeric",month:"long"});
+  $("detailMeta").textContent=(catTxt?catTxt+" · ":"")+(p.barcode?(t("code_lbl")+" "+p.barcode+" · "):"")+t("updated_lbl")+" "+d;
+}
+function toggleLang(){ lang=lang==="ro"?"en":"ro"; try{localStorage.setItem("stoc_lang",lang)}catch{} applyStaticI18n(); render(); updateDynamic(); }
+
+const SUGGEST_CATS=["Păr","Față","Corp","Unghii","Ceară"];
+const SUGGEST_SUBS=["Hair colour","Shampoo","Conditioner","Treatments"];
+
+/* ---------- storage (Netlify) ---------- */
+const API="/.netlify/functions/api";
+async function loadProducts(){
+  const r=await fetch(API+"?a=list");
+  if(!r.ok) throw new Error("list");
+  const d=await r.json();
+  products=d.products||[];
+  render();
+}
+async function putProduct(p){
+  const i=products.findIndex(x=>x.id===p.id);
+  if(i>=0)products[i]=p; else products.push(p);
+  render();
+  try{
+    const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({op:"put",product:p})});
+    if(!r.ok) throw new Error("put");
+  }catch(e){ toast(t("notsaved")); }
+}
+async function removeProduct(id){
+  products=products.filter(x=>x.id!==id); render();
+  try{
+    const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({op:"del",id})});
+    if(!r.ok) throw new Error("del");
+  }catch(e){ toast(t("notdeleted")); }
+}
+
+/* ---------- helpers ---------- */
+const $=id=>document.getElementById(id);
+const nk=n=>n.trim().toLowerCase().replace(/\s+/g," ");
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove("on"),1800)}
+
+function resizeImage(file,max=640,q=.55){return new Promise(res=>{
+  const img=new Image(),url=URL.createObjectURL(file);
+  img.onload=()=>{let w=img.width,h=img.height;
+    if(w>h&&w>max){h=Math.round(h*max/w);w=max}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max}
+    const c=document.createElement("canvas");c.width=w;c.height=h;
+    c.getContext("2d").drawImage(img,0,0,w,h);URL.revokeObjectURL(url);
+    try{res(c.toDataURL("image/jpeg",q))}catch{res(null)}};
+  img.onerror=()=>{URL.revokeObjectURL(url);res(null)};
+  img.src=url;
+});}
+async function compressToBudget(file){
+  const steps=[[640,.55],[520,.5],[440,.46],[360,.43],[300,.4]];
+  let out=null;
+  for(const [m,q] of steps){
+    out=await resizeImage(file,m,q);
+    if(!out)return null;
+    if(out.length<=210000)return out;
+  }
+  return out;
+}
+
+/* ---------- render ---------- */
+const catOf=p=>(p.category&&p.category.trim())||t("no_cat");
+const subOf=p=>(p.subcategory&&p.subcategory.trim())||t("no_sub");
+const distinct=a=>[...new Set(a.filter(Boolean))].sort((x,y)=>x.localeCompare(y,"ro"));
+function lastIf(arr,label){return arr.filter(x=>x!==label).concat(arr.includes(label)?[label]:[])}
+function chip(label,on,val){return `<button class="chip-f ${on?"on":""}" data-val="${esc(val)}">${esc(label)}</button>`}
+function cardHTML(p){
+  return `<button class="card" data-id="${p.id}">
+    <div class="thumb">${p.photo?`<img src="${p.photo}" alt="">`:`<div class="noimg">📦</div>`}</div>
+    <div class="body">
+      <div class="name">${esc(p.name)}</div>
+      <div class="qtyrow"><span class="qty ${p.qty===0?"zero":""}">${p.qty}</span><span class="unit">${t("unit_buc")}</span></div>
+    </div>
+  </button>`;
+}
+function render(){
+  const counts={pro:0,retail:0,sale:0};
+  products.forEach(p=>{const k=stockOf(p);counts[k]=(counts[k]||0)+1;});
+  STOCK_TYPES.forEach(k=>{const el=$("cnt-"+k);if(el)el.textContent=counts[k]||0;});
+  document.querySelectorAll("#stockSel .seg").forEach(b=>b.classList.toggle("on",b.dataset.stock===activeStock));
+
+  const pool=products.filter(p=>stockOf(p)===activeStock);
+  $("totals").textContent=t("totals",pool.length,pool.reduce((s,p)=>s+(p.qty||0),0));
+  const empty=$("empty"),groupsEl=$("groups"),catbar=$("catbar"),subbar=$("subbar");
+  if(!products.length){catbar.innerHTML="";subbar.hidden=true;groupsEl.innerHTML="";empty.hidden=false;return}
+  empty.hidden=true;
+  if(!pool.length){catbar.innerHTML="";subbar.hidden=true;groupsEl.innerHTML=`<div class="empty"><p>${t("none_here","")}</p></div>`;return}
+
+  const NC=t("no_cat"), NS=t("no_sub");
+  let cats=lastIf(distinct(pool.map(catOf)),NC);
+  if(activeCat&&!cats.includes(activeCat)){activeCat=null;activeSub=null;}
+  catbar.innerHTML=chip(t("all"),activeCat===null,"")+cats.map(c=>chip(c,activeCat===c,c)).join("");
+
+  if(activeCat){
+    let subs=lastIf(distinct(pool.filter(p=>catOf(p)===activeCat).map(subOf)),NS);
+    if(activeSub&&!subs.includes(activeSub))activeSub=null;
+    subbar.hidden=false;
+    subbar.innerHTML=chip(t("all"),activeSub===null,"")+subs.map(s=>chip(s,activeSub===s,s)).join("");
+  }else{subbar.hidden=true;activeSub=null;}
+
+  let list=pool.filter(p=>!query||p.name.toLowerCase().includes(query));
+  if(activeCat)list=list.filter(p=>catOf(p)===activeCat);
+  if(activeSub)list=list.filter(p=>subOf(p)===activeSub);
+  if(!list.length){groupsEl.innerHTML=`<div class="empty"><p>${t("none_here",query?esc(query):"")}</p></div>`;return}
+
+  const keyFn=activeCat?subOf:catOf;
+  const groups={};
+  list.forEach(p=>{(groups[keyFn(p)]=groups[keyFn(p)]||[]).push(p)});
+  const keys=lastIf(Object.keys(groups).sort((a,b)=>a.localeCompare(b,"ro")),activeCat?NS:NC);
+  groupsEl.innerHTML=keys.map(k=>{
+    const items=groups[k].sort((a,b)=>a.name.localeCompare(b.name,"ro"));
+    const pieces=items.reduce((s,p)=>s+(p.qty||0),0);
+    return `<section class="group">
+      <div class="ghead">${esc(k)} <span>${t("group_count",items.length,pieces)}</span></div>
+      <div class="grid">${items.map(cardHTML).join("")}</div>
+    </section>`;
+  }).join("");
+}
+function esc(s){return (s==null?"":""+s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+/* ---------- sheets ---------- */
+function openSheet(el){$("scrim").classList.add("on");requestAnimationFrame(()=>el.classList.add("on"))}
+function closeSheets(){$("scrim").classList.remove("on");document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("on"))}
+$("scrim").onclick=closeSheets;
+
+/* ADD / EDIT */
+function openForm(prod,preset){
+  editId=prod?prod.id:null;
+  formPhoto=prod?prod.photo:null;
+  formPhotoFile=null;
+  formQty=prod?prod.qty:1;
+  $("formTitle").textContent=t(prod?"form_edit":"form_new");
+  $("nameInput").value=prod?prod.name:"";
+  $("catInput").value=prod?(prod.category||""):(activeCat&&activeCat!==t("no_cat")?activeCat:"");
+  $("subInput").value=prod?(prod.subcategory||""):(activeSub&&activeSub!==t("no_sub")?activeSub:"");
+  $("descInput").value=prod?(prod.description||""):"";
+  setFormStock(prod?(prod.stockType||"pro"):activeStock);
+  $("bcInput").value=prod?(prod.barcode||""):(preset||"");
+  $("qtyLbl").textContent=t(prod?"qty_lbl":"qty_lbl_init");
+  fillCatList();fillSubList($("catInput").value);
+  renderFormPhoto();renderFormQty();
+  openSheet($("sheetForm"));
+}
+function fillCatList(){
+  const opts=distinct([...products.map(p=>p.category),...SUGGEST_CATS]);
+  $("catList").innerHTML=opts.map(o=>`<option value="${esc(o)}"></option>`).join("");
+}
+function fillSubList(cat){
+  const c=(cat||"").trim();
+  const used=products.filter(p=>!c||(p.category&&p.category.trim()===c)).map(p=>p.subcategory);
+  $("subcatList").innerHTML=distinct([...used,...SUGGEST_SUBS]).map(o=>`<option value="${esc(o)}"></option>`).join("");
+}
+function renderFormPhoto(){
+  const el=$("photoPick");
+  el.querySelector("img")?.remove();
+  if(formPhoto){el.classList.add("has");const img=new Image();img.src=formPhoto;el.prepend(img);
+    el.querySelector(".hint").style.display="none";}
+  else{el.classList.remove("has");el.querySelector(".hint").style.display="";}
+}
+function renderFormQty(){$("qtyVal").textContent=formQty}
+
+$("photoPick").onclick=()=>$("fileInput").click();
+$("fileInput").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  formPhotoFile=f;
+  toast(t("processing"));
+  const data=await compressToBudget(f);
+  if(data){formPhoto=data;renderFormPhoto();identifyProduct(true);}else toast(t("photofail"));
+  e.target.value="";
+};
+$("aiName")&&($("aiName").onclick=()=>identifyProduct(false));
+
+async function identifyProduct(auto){
+  if(!formPhoto&&!formPhotoFile){ if(!auto)toast(t("ai_needphoto")); return; }
+  const st=$("aiStatus");
+  st.className="ai-status on"; st.textContent=t("ai_scanning");
+  try{
+    const cats=distinct(products.map(p=>p.category).filter(Boolean));
+    const taxo=cats.map(c=>{
+      const subs=distinct(products.filter(p=>(p.category||"").trim()===c).map(p=>p.subcategory).filter(Boolean));
+      return "- "+c+(subs.length?(" → "+subs.join(", ")):"");
+    }).join("\n");
+    const img = formPhotoFile ? await resizeImage(formPhotoFile,1280,.82) : formPhoto;
+    const r=await fetch(API,{method:"POST",headers:{"content-type":"application/json"},
+      body:JSON.stringify({op:"identify",image:img,taxo,lang})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok||data.error){ st.textContent=t("ai_fail")+(data.error?" ["+data.error+"]":""); return; }
+    const nm=((data&&data.name)||"").toString().trim();
+    let ct=((data&&data.category)||"").toString().trim();
+    let sb=((data&&data.subcategory)||"").toString().trim();
+    ct=snapTo(ct,cats);
+    sb=snapTo(sb,distinct(products.filter(p=>(p.category||"").trim()===ct).map(p=>p.subcategory).filter(Boolean)));
+    const desc=((data&&data.description)||"").toString().trim();
+    if(nm && (!auto || !$("nameInput").value.trim())) $("nameInput").value=nm;
+    if(ct && !$("catInput").value.trim()){ $("catInput").value=ct; fillSubList(ct); }
+    if(sb && !$("subInput").value.trim()) $("subInput").value=sb;
+    if(desc && !$("descInput").value.trim()) $("descInput").value=desc;
+    const bits=[nm&&t("ai_word_name"),ct&&t("ai_word_cat")].filter(Boolean).join(" + ");
+    if(bits){ st.textContent=t("ai_done",bits); setTimeout(()=>{st.className="ai-status";st.textContent="";},3200); }
+    else { st.textContent=t("ai_none"); }
+  }catch(err){
+    st.textContent=t("ai_fail")+" [net]";
+  }
+}
+function snapTo(val,list){ if(!val)return val; const h=list.find(x=>x.toLowerCase()===val.toLowerCase()); return h||val; }
+document.querySelectorAll("#sheetForm .step").forEach(b=>b.onclick=()=>{
+  formQty=Math.max(0,formQty+ +b.dataset.step);renderFormQty();
+});
+$("formCancel").onclick=closeSheets;
+$("formSave").onclick=async()=>{
+  const name=$("nameInput").value.trim();
+  if(!name){toast(t("needname"));return}
+  const key=nk(name);
+  const bc=$("bcInput").value.trim();
+  const category=$("catInput").value.trim()||null;
+  const subcategory=$("subInput").value.trim()||null;
+  const description=$("descInput").value.trim()||null;
+
+  if(editId){
+    const p=products.find(x=>x.id===editId);
+    const np={...p,name,nameKey:key,category,subcategory,description,stockType:formStock,barcode:bc||null,qty:formQty,photo:formPhoto||null,updatedAt:Date.now()};
+    await putProduct(np);
+    closeSheets();toast(t("saved"));return;
+  }
+  let existing=bc?products.find(p=>p.barcode===bc):null;
+  if(!existing)existing=products.find(p=>p.nameKey===key);
+  if(existing){
+    const ok=confirm(t("merge",existing.name,existing.qty,formQty));
+    if(ok){
+      const np={...existing,qty:existing.qty+formQty,updatedAt:Date.now()};
+      if(!np.photo&&formPhoto)np.photo=formPhoto;
+      if(!np.barcode&&bc)np.barcode=bc;
+      if(!np.category&&category)np.category=category;
+      if(!np.subcategory&&subcategory)np.subcategory=subcategory;
+      await putProduct(np);
+      closeSheets();toast(t("addto",np.name,np.qty));return;
+    }
+  }
+  const rec={id:uid(),name,nameKey:key,category,subcategory,description,stockType:formStock,barcode:bc||null,photo:formPhoto||null,qty:formQty,createdAt:Date.now(),updatedAt:Date.now()};
+  await putProduct(rec);
+  closeSheets();toast(t("saved"));
+};
+
+/* DETAIL */
+function openDetail(id){
+  detailId=id;const p=products.find(x=>x.id===id);if(!p)return;
+  $("detailHero").innerHTML=p.photo?`<img src="${p.photo}" alt="">`:`<div class="noimg">📦</div>`;
+  $("detailName").textContent=p.name;
+  $("detailDesc").textContent=p.description||"";
+  $("detailDesc").hidden=!p.description;
+  document.querySelectorAll("#detailStockBar .seg").forEach(x=>x.classList.toggle("on",x.dataset.stock===stockOf(p)));
+  setDetailMeta(p);
+  $("dQty").textContent=p.qty;
+  $("dQty").classList.toggle("zero",p.qty===0);
+  openSheet($("sheetDetail"));
+}
+async function changeQty(delta){
+  const p=products.find(x=>x.id===detailId);if(!p)return;
+  const np={...p,qty:Math.max(0,p.qty+delta),updatedAt:Date.now()};
+  $("dQty").textContent=np.qty;$("dQty").classList.toggle("zero",np.qty===0);
+  await putProduct(np);
+}
+$("dMinus").onclick=()=>changeQty(-1);
+$("dPlus").onclick=()=>changeQty(1);
+document.querySelectorAll("#sheetDetail .chip[data-q]").forEach(c=>c.onclick=()=>changeQty(+c.dataset.q));
+$("dSetExact").onclick=async()=>{
+  const p=products.find(x=>x.id===detailId);if(!p)return;
+  const v=prompt(t("prompt_exact"),p.qty);
+  if(v===null)return;const n=parseInt(v,10);
+  if(isNaN(n)||n<0){toast(t("invalidnum"));return}
+  const np={...p,qty:n,updatedAt:Date.now()};
+  $("dQty").textContent=np.qty;$("dQty").classList.toggle("zero",np.qty===0);
+  await putProduct(np);
+};
+$("dEdit").onclick=()=>{const p=products.find(x=>x.id===detailId);closeSheets();setTimeout(()=>openForm(p),180)};
+$("dClose").onclick=closeSheets;
+$("dDelete").onclick=async()=>{
+  const p=products.find(x=>x.id===detailId);if(!p)return;
+  if(!confirm(t("del_confirm",p.name)))return;
+  await removeProduct(p.id);closeSheets();toast(t("deleted"));
+};
+
+/* ---------- barcode scan: live camera + photo (Quagga) fallback ---------- */
+let h5=null, scanContext="lookup";
+function bcFormats(){
+  if(typeof Html5QrcodeSupportedFormats==="undefined")return undefined;
+  const F=Html5QrcodeSupportedFormats;
+  return [F.EAN_13,F.EAN_8,F.UPC_A,F.UPC_E,F.UPC_EAN_EXTENSION,F.CODE_128,F.CODE_39,F.ITF,F.CODABAR,F.QR_CODE];
+}
+async function openScanner(ctx){
+  scanContext=ctx||"lookup";
+  $("scanner").classList.add("on");
+  const hint=$("scanHint");
+  hint.textContent=t("scan_starting");
+  if(typeof Html5Qrcode==="undefined"){ hint.textContent=t("scanunavail")+" [h5:0]"; return; }
+  const cfg={fps:12,qrbox:{width:280,height:170}};
+  try{
+    h5=new Html5Qrcode("reader",{formatsToSupport:bcFormats(),verbose:false,experimentalFeatures:{useBarCodeDetectorIfSupported:true}});
+    await h5.start({facingMode:"environment"},cfg,onScan,()=>{});
+    hint.textContent=t("scan_hint");
+  }catch(e){
+    try{
+      await stopScanner();
+      h5=new Html5Qrcode("reader",{verbose:false});
+      await h5.start({facingMode:"environment"},cfg,onScan,()=>{});
+      hint.textContent=t("scan_hint");
+    }catch(e2){
+      h5=null;
+      hint.textContent=t("scan_nocam")+" ["+((e2&&(e2.name||e2.message))||(e&&(e.name||e.message))||"?")+"]";
+    }
+  }
+}
+async function stopScanner(){ if(h5){try{await h5.stop()}catch{} try{h5.clear()}catch{} h5=null;} }
+function closeScanner(){ stopScanner(); $("scanner").classList.remove("on"); }
+async function onScan(text){ await stopScanner(); $("scanner").classList.remove("on"); handleBarcode(text); }
+function startScan(ctx){ openScanner(ctx); }
+
+function quaggaDecode(src){
+  return new Promise(res=>{
+    if(typeof Quagga==="undefined") return res(null);
+    try{
+      Quagga.decodeSingle({
+        src, numOfWorkers:0, locate:true, inputStream:{size:1600},
+        decoder:{readers:["ean_reader","ean_8_reader","upc_reader","upc_e_reader","code_128_reader","code_39_reader","i2of5_reader","codabar_reader"]}
+      }, r=>res((r&&r.codeResult&&r.codeResult.code)||null));
+    }catch{ res(null); }
+  });
+}
+
+$("scanClose").onclick=closeScanner;
+$("scanPhoto").onclick=()=>$("scanFile").click();
+$("scanFile").onchange=async e=>{
+  const f=e.target.files[0];if(!f)return;
+  const hint=$("scanHint"); hint.textContent=t("scansearch");
+  await stopScanner();
+  const url=URL.createObjectURL(f);
+  let code=await quaggaDecode(url);
+  if(!code && typeof Html5Qrcode!=="undefined"){
+    try{ const fs=new Html5Qrcode("reader",{formatsToSupport:bcFormats(),verbose:false}); code=await fs.scanFile(f,false); try{fs.clear()}catch{} }catch{}
+  }
+  URL.revokeObjectURL(url);
+  if(code){ $("scanner").classList.remove("on"); handleBarcode(code); }
+  else { hint.textContent=t("scannotfound")+" [Q:"+(typeof Quagga!=="undefined"?1:0)+" H:"+(typeof Html5Qrcode!=="undefined"?1:0)+"]"; }
+  e.target.value="";
+};
+
+async function handleBarcode(code){
+  code=(code||"").trim();
+  if(!code){toast(t("codeempty"));return}
+  if(scanContext==="form"){ $("bcInput").value=code; toast(t("coderead",code)); return; }
+  const p=products.find(x=>x.barcode===code);
+  if(p){
+    const np={...p,qty:p.qty+1,updatedAt:Date.now()};
+    await putProduct(np);
+    openDetail(np.id);
+    toast(t("plus1",np.name,np.qty));
+  }else{
+    toast(t("newcode"));
+    openForm(null,code);
+  }
+}
+
+/* ---------- events ---------- */
+$("fabAdd").onclick=()=>openForm(null);
+$("fabScan").onclick=()=>startScan("lookup");
+$("bcScan").onclick=()=>startScan("form");
+$("groups").onclick=e=>{const c=e.target.closest(".card");if(c)openDetail(c.dataset.id)};
+$("catbar").onclick=e=>{const b=e.target.closest(".chip-f");if(!b)return;activeCat=b.dataset.val||null;activeSub=null;render();};
+$("subbar").onclick=e=>{const b=e.target.closest(".chip-f");if(!b)return;activeSub=b.dataset.val||null;render();};
+$("catInput").oninput=()=>fillSubList($("catInput").value);
+$("search").oninput=e=>{query=e.target.value.trim().toLowerCase();render()};
+
+function setFormStock(k){formStock=k||"pro";document.querySelectorAll("#formStockBar .seg").forEach(x=>x.classList.toggle("on",x.dataset.stock===formStock));}
+$("formStockBar").onclick=e=>{const b=e.target.closest(".seg");if(b)setFormStock(b.dataset.stock);};
+$("stockSel").onclick=e=>{const b=e.target.closest(".seg");if(!b)return;activeStock=b.dataset.stock;activeCat=null;activeSub=null;render();};
+$("detailStockBar").onclick=async e=>{
+  const b=e.target.closest(".seg");if(!b)return;
+  const p=products.find(x=>x.id===detailId);if(!p)return;
+  document.querySelectorAll("#detailStockBar .seg").forEach(x=>x.classList.toggle("on",x.dataset.stock===b.dataset.stock));
+  await putProduct({...p,stockType:b.dataset.stock,updatedAt:Date.now()});
+};
+
+const deburr=s=>(s==null?"":(""+s)).normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+async function exportPDF(){
+  if(!window.jspdf||!window.jspdf.jsPDF){toast(t("pdf_loading"));return}
+  const { jsPDF }=window.jspdf;
+  const doc=new jsPDF({unit:"mm",format:"a4"});
+  const pw=210, ph=297, mx=12; let y=16;
+  const listName=t("st_"+activeStock);
+  const pool=products.filter(p=>stockOf(p)===activeStock).sort((a,b)=>
+    catOf(a).localeCompare(catOf(b),"ro")||subOf(a).localeCompare(subOf(b),"ro")||(a.name||"").localeCompare(b.name||"","ro"));
+  const pieces=pool.reduce((s,p)=>s+(p.qty||0),0);
+  doc.setFont("helvetica","bold");doc.setFontSize(16);
+  doc.text(deburr(t("pdf_title",listName)),mx,y); y+=6;
+  doc.setFont("helvetica","normal");doc.setFontSize(10);doc.setTextColor(120);
+  const dstr=new Date().toLocaleDateString(lang==="ro"?"ro-RO":"en-GB");
+  doc.text(deburr(dstr+"  ·  "+pool.length+" "+(lang==="ro"?"produse":"products")+"  ·  "+pieces+" "+t("unit_buc")),mx,y); y+=5;
+  doc.setFont("helvetica","bold");doc.text(deburr(t("pdf_keepnote")),mx,y); y+=6;
+  doc.setFont("helvetica","normal");doc.setTextColor(0);
+  let lastCat=null,lastSub=null;
+  for(const p of pool){
+    if(y>ph-24){doc.addPage();y=16;lastCat=null;lastSub=null;}
+    const c=catOf(p), s=subOf(p);
+    if(c!==lastCat){ y+=3; doc.setFont("helvetica","bold");doc.setFontSize(12);doc.text(deburr(c),mx,y); y+=5; lastCat=c; lastSub=null; }
+    if(s!==lastSub){ doc.setFont("helvetica","bold");doc.setFontSize(10);doc.setTextColor(90);doc.text(deburr(s),mx+2,y); y+=5; doc.setTextColor(0); lastSub=s; }
+    const rowH=12;
+    if(y>ph-rowH-12){doc.addPage();y=16;lastCat=c;lastSub=s;}
+    if(p.photo){ try{ doc.addImage(p.photo,"JPEG",mx+2,y-3,10,10); }catch{} }
+    // qty + Y/N tick boxes on the right
+    doc.setFont("helvetica","bold");doc.setFontSize(10);
+    doc.text("x"+(p.qty||0),pw-mx,y+3,{align:"right"});
+    const bs=5, nX=pw-mx-20, yX=pw-mx-40;
+    doc.setDrawColor(110);doc.setLineWidth(0.3);
+    doc.setFont("helvetica","normal");doc.setFontSize(8);
+    doc.text("Y",yX-4.5,y+3.5); doc.rect(yX,y-0.5,bs,bs);
+    doc.text("N",nX-4.5,y+3.5); doc.rect(nX,y-0.5,bs,bs);
+    // name
+    doc.setFontSize(10);
+    const nameMax=(yX-7)-(mx+15);
+    const nm=doc.splitTextToSize(deburr(p.name||""),nameMax)[0]||"";
+    doc.text(nm,mx+15,y+3);
+    y+=rowH;
+    doc.setDrawColor(228);doc.setLineWidth(0.2);doc.line(mx+15,y-2,pw-mx,y-2);
+  }
+  doc.save("stoc-"+activeStock+".pdf");
+}
+$("pdfBtn").onclick=exportPDF;
+
+/* ---------- init / storage mode ---------- */
+async function initStore(){
+  const s=$("status");
+  if(s){s.textContent=t("status_connecting");s.className="status";}
+  try{
+    await loadProducts();
+    if(s){s.textContent=t("status_cloud");s.className="status cloud";}
+  }catch(e){
+    if(s){s.textContent=t("status_local");s.className="status local";}
+    render();
+  }
+}
+$("langToggle").onclick=toggleLang;
+applyStaticI18n();
+render();
+initStore();
+</script>
+</body>
+</html>
