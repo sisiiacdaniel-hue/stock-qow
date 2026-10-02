@@ -94,6 +94,11 @@ export default async (req) => {
       const arr = await getProducts(store);
       return json({ products: arr });
     }
+    if (req.method === "GET" && url.searchParams.get("a") === "reseed") {
+      const arr = seed && Array.isArray(seed.products) ? seed.products : [];
+      await store.setJSON(KEY, arr);
+      return json({ ok: true, count: arr.length });
+    }
     if (req.method === "POST") {
       const body = await req.json();
       if (body.op === "identify") return await identify(body);
